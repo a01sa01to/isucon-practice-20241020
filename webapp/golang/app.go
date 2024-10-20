@@ -185,7 +185,7 @@ func makePosts(results []Post, csrfToken string, allComments bool) ([]Post, erro
 		}
 
 		var users []User
-		err = db.Select(&users, "SELECT * FROM `users` WHERE EXISTS (SELECT * FROM `comments` WHERE `post_id` = ? AND `user_id` = `users`.`id`)", p.ID)
+		err = db.Select(&users, "SELECT * FROM `users` WHERE EXISTS (SELECT 1 FROM `comments` WHERE `post_id` = ? AND `user_id` = `users`.`id`)", p.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -218,12 +218,11 @@ func makePosts(results []Post, csrfToken string, allComments bool) ([]Post, erro
 
 		p.CSRFToken = csrfToken
 
-		if p.User.DelFlg == 1 {
-			panic("user is deleted")
+		if p.User.DelFlg == 0 {
+			posts = append(posts, p)
 		}
-		posts = append(posts, p)
-		if len(posts) > postsPerPage {
-			panic("too many posts")
+		if len(posts) >= postsPerPage {
+			break
 		}
 	}
 
@@ -396,8 +395,7 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 
 	query := "SELECT `id`, `user_id`, `body`, `mime`, `created_at`, `num` AS `comment_count` FROM `posts`" +
 	" JOIN `comment_count` ON `posts`.`id` = `comment_count`.`post_id`" +
-	" WHERE EXISTS (SELECT * FROM `users` WHERE `id` = `posts`.`user_id` AND `del_flg` = 0)" +
-	" ORDER BY `created_at` DESC LIMIT 20"
+	" ORDER BY `created_at` DESC LIMIT 30"
 	err := db.Select(&results, query)
 	if err != nil {
 		log.Print(err)
@@ -538,8 +536,8 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 	results := []Post{}
 	query := "SELECT `id`, `user_id`, `body`, `mime`, `created_at`, `num` AS `comment_count` FROM `posts`" +
 	" JOIN `comment_count` ON `posts`.`id` = `comment_count`.`post_id`" +
-	" WHERE `created_at` <= ? AND EXISTS (SELECT * FROM `users` WHERE `id` = `posts`.`user_id` AND `del_flg` = 0)" +
-	" ORDER BY `created_at` DESC LIMIT 20"
+	" WHERE `created_at` <= ?" +
+	" ORDER BY `created_at` DESC LIMIT 30"
 	err = db.Select(&results, query, t.Format(ISO8601Format))
 	if err != nil {
 		log.Print(err)
@@ -578,7 +576,7 @@ func getPostsID(w http.ResponseWriter, r *http.Request) {
 	results := []Post{}
 	query := "SELECT `id`, `user_id`, `mime`, `body`, `created_at`, `num` AS `comment_count` FROM `posts`" +
 	" JOIN `comment_count` ON `posts`.`id` = `comment_count`.`post_id`" +
-	" WHERE `id` = ? AND EXISTS (SELECT * FROM `users` WHERE `id` = `posts`.`user_id` AND `del_flg` = 0)"
+	" WHERE `id` = ?"
 	err = db.Select(&results, query, pid)
 	if err != nil {
 		log.Print(err)
