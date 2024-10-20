@@ -181,12 +181,25 @@ func makePosts(results []Post, csrfToken string, allComments bool) ([]Post, erro
 			return nil, err
 		}
 
-		for i := 0; i < len(comments); i++ {
-			err := db.Get(&comments[i].User, "SELECT * FROM `users` WHERE `id` = ?", comments[i].UserID)
-			if err != nil {
-				return nil, err
-			}
+		var users []User
+		err = db.Select(&users, "SELECT * FROM `users` WHERE EXISTS (SELECT * FROM `comments` WHERE `post_id` = ? AND `user_id` = `users`.`id`)", p.ID)
+		if err != nil {
+			return nil, err
 		}
+		usermap := make(map[int]User)
+		for _, u := range users {
+			usermap[u.ID] = u
+		}
+		for i := range comments {
+			comments[i].User = usermap[comments[i].UserID]
+		}
+
+		// for i := 0; i < len(comments); i++ {
+		// 	err := db.Get(&comments[i].User, "SELECT * FROM `users` WHERE `id` = ?", comments[i].UserID)
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+		// }
 
 		// reverse
 		for i, j := 0, len(comments)-1; i < j; i, j = i+1, j-1 {
