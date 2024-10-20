@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -643,7 +644,7 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		query,
 		me.ID,
 		mime,
-		filedata,
+		"foo",
 		r.FormValue("body"),
 	)
 	if err != nil {
@@ -657,40 +658,55 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/posts/"+strconv.FormatInt(pid, 10), http.StatusFound)
-}
-
-func getImage(w http.ResponseWriter, r *http.Request) {
-	pidStr := r.PathValue("id")
-	pid, err := strconv.Atoi(pidStr)
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
+	ext := ""
+	if mime == "image/jpeg" {
+		ext = ".jpg"
+	} else if mime == "image/png" {
+		ext = ".png"
+	} else if mime == "image/gif" {
+		ext = ".gif"
 	}
-
-	post := Post{}
-	err = db.Get(&post, "SELECT * FROM `posts` WHERE `id` = ?", pid)
+	// 書き込み
+	err = ioutil.WriteFile(path.Join("/home/public/image", strconv.FormatInt(pid, 10)+ext), filedata, 0644)
 	if err != nil {
 		log.Print(err)
 		return
 	}
 
-	ext := r.PathValue("ext")
-
-	if ext == "jpg" && post.Mime == "image/jpeg" ||
-		ext == "png" && post.Mime == "image/png" ||
-		ext == "gif" && post.Mime == "image/gif" {
-		w.Header().Set("Content-Type", post.Mime)
-		_, err := w.Write(post.Imgdata)
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		return
-	}
-
-	w.WriteHeader(http.StatusNotFound)
+	http.Redirect(w, r, "/posts/"+strconv.FormatInt(pid, 10), http.StatusFound)
 }
+
+// func getImage(w http.ResponseWriter, r *http.Request) {
+// 	pidStr := r.PathValue("id")
+// 	pid, err := strconv.Atoi(pidStr)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusNotFound)
+// 		return
+// 	}
+
+// 	post := Post{}
+// 	err = db.Get(&post, "SELECT * FROM `posts` WHERE `id` = ?", pid)
+// 	if err != nil {
+// 		log.Print(err)
+// 		return
+// 	}
+
+// 	ext := r.PathValue("ext")
+
+// 	if ext == "jpg" && post.Mime == "image/jpeg" ||
+// 		ext == "png" && post.Mime == "image/png" ||
+// 		ext == "gif" && post.Mime == "image/gif" {
+// 		w.Header().Set("Content-Type", post.Mime)
+// 		_, err := w.Write(post.Imgdata)
+// 		if err != nil {
+// 			log.Print(err)
+// 			return
+// 		}
+// 		return
+// 	}
+
+// 	w.WriteHeader(http.StatusNotFound)
+// }
 
 func postComment(w http.ResponseWriter, r *http.Request) {
 	me := getSessionUser(r)
@@ -819,6 +835,40 @@ func main() {
 	}
 	defer db.Close()
 
+	// log.Print("Connected to DB")
+	// log.Print("Getting posts...")
+
+	// // 画像を保存する
+	// dir := "/home/public/image"
+	// imgs := []Post{}
+	// err = db.Select(&imgs, "SELECT * FROM `posts`")
+	// if err != nil {
+	// 	log.Print(err)
+	// 	return
+	// }
+	// log.Print("img count: ", len(imgs))
+	// for _, data := range imgs {
+	// 	ext := ""
+	// 	if data.Mime == "image/jpeg" {
+	// 		ext = ".jpg"
+	// 	} else if data.Mime == "image/png" {
+	// 		ext = ".png"
+	// 	} else if data.Mime == "image/gif" {
+	// 		ext = ".gif"
+	// 	}
+	// 	filepath := path.Join(dir, strconv.Itoa(data.ID)+ext)
+	// 	// if file exists skip
+	// 	if _, err := os.Stat(filepath); err == nil {
+	// 		continue
+	// 	}
+	// 	err = ioutil.WriteFile(filepath, data.Imgdata, 0644)
+	// 	if err != nil {
+	// 		log.Print(err)
+	// 		return
+	// 	}
+	// }
+	// log.Print("Saved images")
+
 	r := chi.NewRouter()
 
 	r.Get("/initialize", getInitialize)
@@ -831,7 +881,7 @@ func main() {
 	r.Get("/posts", getPosts)
 	r.Get("/posts/{id}", getPostsID)
 	r.Post("/", postIndex)
-	r.Get("/image/{id}.{ext}", getImage)
+	// r.Get("/image/{id}.{ext}", getImage)
 	r.Post("/comment", postComment)
 	r.Get("/admin/banned", getAdminBanned)
 	r.Post("/admin/banned", postAdminBanned)
