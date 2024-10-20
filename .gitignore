@@ -1,3 +1,5 @@
+webapp/logs
+
 vendor/
 portal/log
 portal/tmp
