@@ -1,4 +1,5 @@
 webapp/logs
+bench.sh
 
 vendor/
 portal/log
