@@ -218,11 +218,12 @@ func makePosts(results []Post, csrfToken string, allComments bool) ([]Post, erro
 
 		p.CSRFToken = csrfToken
 
-		if p.User.DelFlg == 0 {
-			posts = append(posts, p)
+		if p.User.DelFlg == 1 {
+			panic("user is deleted")
 		}
-		if len(posts) >= postsPerPage {
-			break
+		posts = append(posts, p)
+		if len(posts) > postsPerPage {
+			panic("too many posts")
 		}
 	}
 
@@ -577,7 +578,7 @@ func getPostsID(w http.ResponseWriter, r *http.Request) {
 	results := []Post{}
 	query := "SELECT `id`, `user_id`, `mime`, `body`, `created_at`, `num` AS `comment_count` FROM `posts`" +
 	" JOIN `comment_count` ON `posts`.`id` = `comment_count`.`post_id`" +
-	" WHERE `id` = ?"
+	" WHERE `id` = ? AND EXISTS (SELECT * FROM `users` WHERE `id` = `posts`.`user_id` AND `del_flg` = 0)"
 	err = db.Select(&results, query, pid)
 	if err != nil {
 		log.Print(err)
